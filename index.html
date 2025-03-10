@@ -4,20 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>N8n Chat Widget</title>
-    <!-- Import the required dependencies -->
+    <!-- Import React and ReactDOM -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     
-    <!-- Import n8n chat directly from unpkg (for demo purposes) -->
-    <script src="https://unpkg.com/@n8n/chat@0.27.1/dist/chat.umd.js"></script>
+    <!-- Import n8n chat -->
+    <script src="https://unpkg.com/@n8n/chat/dist/index.umd.js"></script>
     
     <style>
-        :root {
-            --n8n-primary-color: #ff6d5a;
-            --n8n-secondary-color: #526ee0;
-            --n8n-background-color: #f9f9f9;
-        }
-        
         * {
             box-sizing: border-box;
             margin: 0;
@@ -39,204 +33,211 @@
             flex-direction: column;
         }
         
-        /* Customize n8n chat appearance - these will override default styles */
-        .n8n-chat-container {
-            border: none !important;
-            box-shadow: none !important;
-            height: 100% !important;
-            max-height: 100% !important;
+        .chat-messages {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            background-color: #fff;
         }
         
-        .n8n-chat-header {
-            background-color: var(--n8n-primary-color) !important;
+        .message {
+            margin-bottom: 12px;
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            position: relative;
+            clear: both;
         }
         
-        .n8n-chat-send-button {
-            background-color: var(--n8n-secondary-color) !important;
+        .user-message {
+            background-color: #4a6ee0;
+            color: white;
+            float: right;
         }
         
-        /* For embedded mode */
-        .embedded-mode {
+        .bot-message {
+            background-color: #f0f2f5;
+            float: left;
+        }
+        
+        .chat-input {
+            display: flex;
+            padding: 12px;
+            border-top: 1px solid #ddd;
+            background-color: #fff;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            font-family: inherit;
+        }
+        
+        .send-btn {
+            background-color: #4a6ee0;
+            color: white;
             border: none;
-            border-radius: 0;
-            height: 100%;
+            border-radius: 8px;
+            padding: 0 16px;
+            margin-left: 8px;
+            cursor: pointer;
+            font-weight: 500;
         }
         
-        /* Message timestamps */
-        .message-timestamp {
-            font-size: 0.7rem;
+        .timestamp {
+            font-size: 11px;
             color: #666;
             margin-top: 4px;
+            text-align: right;
         }
     </style>
 </head>
 <body>
-    <div id="chat-container"></div>
+    <div id="chat-container">
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot-message">
+                Hello! How can I help you today?
+                <div class="timestamp">Just now</div>
+            </div>
+        </div>
+        <div class="chat-input">
+            <input type="text" class="message-input" id="messageInput" placeholder="Type your message here...">
+            <button class="send-btn" id="sendBtn">Send</button>
+        </div>
+    </div>
 
     <script>
         // Check if we're in an iframe
         const isEmbedded = window.self !== window.top;
         
-        // State management
-        let chatSession = null;
-        let messages = [];
+        // Configuration for n8n webhook
+        const webhookUrl = 'https://cwx.app.n8n.cloud/webhook/b481e0bc-12fe-4b71-8af0-e6ff9aa7628b/chat';
         
-        // Configuration for n8n chat
-        const chatConfig = {
-            // Replace with your actual n8n webhook URL or API endpoint
-            endpoint: 'https://your-n8n-instance.com/webhook/chat',
-            
-            // Options for customizing the appearance and behavior
-            options: {
-                chatTitle: 'N8n Chat Support',
-                chatDescription: 'How can we help you today?',
-                showTypingIndicator: true,
-                messageDelayMs: 1000, // Simulated typing delay
-                userMessageColor: '#e1f5fe',
-                assistantMessageColor: '#f5f5f5',
-                timestampFormat: 'HH:mm',
-                enableAttachments: false,
-                placeholder: 'Type your message here...',
-                welcomeMessage: 'Hello! I\'m your N8n-powered assistant. How can I help you today?'
-            }
-        };
+        // Elements
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
         
-        // Initialize the chat when the document is loaded
+        // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            initializeChat();
-            
             // If embedded, notify the parent that we're ready
             if (isEmbedded) {
                 window.parent.postMessage({
                     type: 'n8nChatWidgetReady'
                 }, '*');
             }
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Set up message listener for parent window communication
+            setupMessageListener();
         });
         
-        // Initialize the n8n chat component
-        function initializeChat() {
-            try {
-                const container = document.getElementById('chat-container');
-                
-                // Apply embedded styles if in iframe
-                if (isEmbedded) {
-                    container.classList.add('embedded-mode');
+        // Set up event listeners
+        function setupEventListeners() {
+            // Send button click
+            sendBtn.addEventListener('click', sendMessage);
+            
+            // Enter key press
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
                 }
-                
-                // Create the chat component using the N8nChat object from the imported library
-                chatSession = N8nChat.createChat({
-                    container: container,
-                    endpoint: chatConfig.endpoint,
-                    options: chatConfig.options,
-                    
-                    // Event handlers
-                    onMessage: handleMessage,
-                    onError: handleError,
-                    onSessionStart: handleSessionStart,
-                    onSessionEnd: handleSessionEnd
-                });
-                
-                // Add welcome message
-                if (chatConfig.options.welcomeMessage) {
-                    renderMessage({
-                        id: 'welcome',
-                        content: chatConfig.options.welcomeMessage,
-                        role: 'assistant',
-                        timestamp: new Date().toISOString()
-                    });
-                }
-                
-                // Set up message listener for parent window communication
-                setupMessageListener();
-                
-            } catch (error) {
-                console.error('Failed to initialize n8n chat:', error);
-                displayErrorMessage('Chat initialization failed. Please try again later.');
-            }
+            });
         }
         
-        // Handle incoming messages from the chat
-        function handleMessage(message) {
-            // Add to messages array
-            messages.push(message);
+        // Send message function
+        async function sendMessage() {
+            const messageText = messageInput.value.trim();
+            if (!messageText) return;
             
-            // Render the message in the UI
-            renderMessage(message);
+            // Add user message to UI
+            addMessageToUI(messageText, 'user');
+            
+            // Clear input
+            messageInput.value = '';
             
             // Send to parent if embedded
             if (isEmbedded) {
                 window.parent.postMessage({
                     type: 'n8nChatMessage',
-                    data: message
-                }, '*');
-            }
-        }
-        
-        // Render a message in the chat UI
-        function renderMessage(message) {
-            // N8n chat handles rendering internally
-            // This function would be used for custom rendering if needed
-            
-            // Create timestamp display
-            const timestamp = new Date(message.timestamp).toLocaleTimeString();
-            
-            // For custom implementations, you might need to manually add timestamps
-            // or other UI elements that aren't built into the n8n chat component
-        }
-        
-        // Handle errors from the chat
-        function handleError(error) {
-            console.error('N8n chat error:', error);
-            
-            // Display error message to user
-            displayErrorMessage('Something went wrong. Please try again.');
-            
-            // Notify parent if embedded
-            if (isEmbedded) {
-                window.parent.postMessage({
-                    type: 'n8nChatError',
                     data: {
-                        error: error
+                        message: messageText,
+                        role: 'user',
+                        timestamp: new Date().toISOString()
                     }
                 }, '*');
             }
-        }
-        
-        // Display error message in the chat
-        function displayErrorMessage(text) {
-            // Add an error message to the chat
-            handleMessage({
-                id: 'error-' + Date.now(),
-                content: text,
-                role: 'system',
-                timestamp: new Date().toISOString()
-            });
-        }
-        
-        // Handle session start event
-        function handleSessionStart(session) {
-            console.log('Chat session started:', session);
             
-            // Notify parent if embedded
-            if (isEmbedded) {
-                window.parent.postMessage({
-                    type: 'n8nChatSessionStart',
-                    data: session
-                }, '*');
+            try {
+                // Send to n8n webhook
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: messageText,
+                        sessionId: generateSessionId()
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get response from server');
+                }
+                
+                const data = await response.json();
+                
+                // Add bot response to UI
+                if (data.message) {
+                    addMessageToUI(data.message, 'bot');
+                    
+                    // Send to parent if embedded
+                    if (isEmbedded) {
+                        window.parent.postMessage({
+                            type: 'n8nChatMessage',
+                            data: {
+                                message: data.message,
+                                role: 'assistant',
+                                timestamp: new Date().toISOString()
+                            }
+                        }, '*');
+                    }
+                }
+            } catch (error) {
+                console.error('Error sending message:', error);
+                addMessageToUI('Sorry, there was an error communicating with the server. Please try again later.', 'bot');
             }
         }
         
-        // Handle session end event
-        function handleSessionEnd(session) {
-            console.log('Chat session ended:', session);
+        // Add message to UI
+        function addMessageToUI(text, role) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role === 'user' ? 'user-message' : 'bot-message'}`;
             
-            // Notify parent if embedded
-            if (isEmbedded) {
-                window.parent.postMessage({
-                    type: 'n8nChatSessionEnd',
-                    data: session
-                }, '*');
-            }
+            // Create text node for message content
+            messageDiv.appendChild(document.createTextNode(text));
+            
+            // Add timestamp
+            const timestamp = document.createElement('div');
+            timestamp.className = 'timestamp';
+            timestamp.textContent = new Date().toLocaleTimeString();
+            messageDiv.appendChild(timestamp);
+            
+            // Add to chat container
+            chatMessages.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Generate a unique session ID
+        function generateSessionId() {
+            return 'session_' + Math.random().toString(36).substring(2, 15);
         }
         
         // Set up listener for messages from parent window
@@ -254,21 +255,16 @@
                 if (data.type === 'command') {
                     switch(data.action) {
                         case 'sendMessage':
-                            if (data.message && chatSession) {
-                                chatSession.sendMessage(data.message);
+                            if (data.message) {
+                                messageInput.value = data.message;
+                                sendMessage();
                             }
                             break;
                             
                         case 'clearChat':
-                            if (chatSession) {
-                                chatSession.clearChat();
-                            }
-                            break;
-                            
-                        case 'endSession':
-                            if (chatSession) {
-                                chatSession.endSession();
-                            }
+                            chatMessages.innerHTML = '';
+                            // Add welcome message back
+                            addMessageToUI('Hello! How can I help you today?', 'bot');
                             break;
                     }
                 }
@@ -277,18 +273,15 @@
         
         // Function to check if origin is allowed
         function isAllowedOrigin(origin) {
-            // Add your allowed domains here
-            const allowedOrigins = [
-                'https://yourdomain.com',
-                'https://yourotherdomain.com'
-            ];
+            // For development/testing, you might want to allow all origins
+            return true;
             
-            // For development/testing, you might want to allow localhost
-            if (window.location.hostname === 'localhost') {
-                return true;
-            }
-            
-            return allowedOrigins.includes(origin);
+            // In production, use something like this:
+            // const allowedOrigins = [
+            //     'https://yourdomain.com',
+            //     'https://yourotherdomain.com'
+            // ];
+            // return allowedOrigins.includes(origin);
         }
     </script>
 </body>
