@@ -4,14 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>N8n Chat Widget</title>
-    <!-- Import React and ReactDOM -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    
-    <!-- Import n8n chat -->
-    <script src="https://unpkg.com/@n8n/chat/dist/index.umd.js"></script>
-    
     <style>
+        :root {
+            --primary-color: #ff6d5a;
+            --secondary-color: #f0f2f5;
+            --text-color: #333;
+            --light-text: #666;
+            --border-radius: 8px;
+        }
+        
         * {
             box-sizing: border-box;
             margin: 0;
@@ -20,17 +21,37 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
             height: 100vh;
             margin: 0;
             padding: 0;
             overflow: hidden;
         }
         
-        #chat-container {
-            width: 100%;
-            height: 100%;
+        .chat-container {
+            max-width: 100%;
+            height: 100vh;
             display: flex;
             flex-direction: column;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chat-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-header h2 {
+            font-size: 16px;
+            font-weight: 500;
         }
         
         .chat-messages {
@@ -44,20 +65,34 @@
             margin-bottom: 12px;
             max-width: 80%;
             padding: 10px 14px;
-            border-radius: 8px;
+            border-radius: var(--border-radius);
             position: relative;
             clear: both;
+            animation: fadeIn 0.2s ease-out;
         }
         
         .user-message {
-            background-color: #4a6ee0;
+            background-color: var(--primary-color);
             color: white;
             float: right;
+            border-top-right-radius: 2px;
         }
         
         .bot-message {
-            background-color: #f0f2f5;
+            background-color: var(--secondary-color);
             float: left;
+            border-top-left-radius: 2px;
+        }
+        
+        .timestamp {
+            font-size: 11px;
+            color: var(--light-text);
+            margin-top: 4px;
+            text-align: right;
+        }
+        
+        .user-message .timestamp {
+            color: rgba(255, 255, 255, 0.8);
         }
         
         .chat-input {
@@ -71,36 +106,103 @@
             flex: 1;
             padding: 10px 14px;
             border: 1px solid #ddd;
-            border-radius: 8px;
+            border-radius: var(--border-radius);
             outline: none;
             font-family: inherit;
         }
         
         .send-btn {
-            background-color: #4a6ee0;
+            background-color: var(--primary-color);
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: var(--border-radius);
             padding: 0 16px;
             margin-left: 8px;
             cursor: pointer;
             font-weight: 500;
         }
         
-        .timestamp {
-            font-size: 11px;
-            color: #666;
-            margin-top: 4px;
-            text-align: right;
+        .send-btn:hover {
+            opacity: 0.9;
+        }
+        
+        .send-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        /* For embedded mode */
+        .embedded-mode {
+            border: none;
+            border-radius: 0;
+            height: 100%;
+        }
+        
+        .embedded-mode .chat-header {
+            display: none;
+        }
+        
+        /* Animation for new messages */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Loading indicator */
+        .typing-indicator {
+            background-color: var(--secondary-color);
+            padding: 10px;
+            border-radius: var(--border-radius);
+            margin-bottom: 12px;
+            float: left;
+            clear: both;
+            display: none;
+        }
+        
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            float: left;
+            margin: 0 1px;
+            background-color: #9E9EA1;
+            display: block;
+            border-radius: 50%;
+            opacity: 0.4;
+        }
+        
+        .typing-indicator span:nth-of-type(1) {
+            animation: 1s blink infinite 0.3333s;
+        }
+        
+        .typing-indicator span:nth-of-type(2) {
+            animation: 1s blink infinite 0.6666s;
+        }
+        
+        .typing-indicator span:nth-of-type(3) {
+            animation: 1s blink infinite 0.9999s;
+        }
+        
+        @keyframes blink {
+            50% {
+                opacity: 1;
+            }
         }
     </style>
 </head>
 <body>
-    <div id="chat-container">
+    <div class="chat-container" id="chatContainer">
+        <div class="chat-header">
+            <h2>Chat with n8n</h2>
+        </div>
         <div class="chat-messages" id="chatMessages">
             <div class="message bot-message">
                 Hello! How can I help you today?
                 <div class="timestamp">Just now</div>
+            </div>
+            <div class="typing-indicator" id="typingIndicator">
+                <span></span>
+                <span></span>
+                <span></span>
             </div>
         </div>
         <div class="chat-input">
@@ -110,50 +212,59 @@
     </div>
 
     <script>
+        // Configuration - REPLACE THIS WITH YOUR ACTUAL WEBHOOK URL
+        const n8nWebhookUrl = 'https://cwx.app.n8n.cloud/webhook/b481e0bc-12fe-4b71-8af0-e6ff9aa7628b/chat';
+        
         // Check if we're in an iframe
         const isEmbedded = window.self !== window.top;
         
-        // Configuration for n8n webhook
-        const webhookUrl = 'https://cwx.app.n8n.cloud/webhook/b481e0bc-12fe-4b71-8af0-e6ff9aa7628b/chat';
-        
         // Elements
+        const chatContainer = document.getElementById('chatContainer');
         const chatMessages = document.getElementById('chatMessages');
         const messageInput = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendBtn');
+        const typingIndicator = document.getElementById('typingIndicator');
         
-        // Initialize
+        // Apply embedded styles if in iframe
+        if (isEmbedded) {
+            chatContainer.classList.add('embedded-mode');
+        }
+        
+        // Session management
+        const sessionId = generateSessionId();
+        let isWaitingForResponse = false;
+        
+        // Set up event listeners
         document.addEventListener('DOMContentLoaded', function() {
+            // Send button click handler
+            sendBtn.addEventListener('click', sendMessage);
+            
+            // Enter key press handler
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // Focus on input field
+            messageInput.focus();
+            
+            // Set up message listener for parent window communication
+            setupMessageListener();
+            
             // If embedded, notify the parent that we're ready
             if (isEmbedded) {
                 window.parent.postMessage({
                     type: 'n8nChatWidgetReady'
                 }, '*');
             }
-            
-            // Set up event listeners
-            setupEventListeners();
-            
-            // Set up message listener for parent window communication
-            setupMessageListener();
         });
-        
-        // Set up event listeners
-        function setupEventListeners() {
-            // Send button click
-            sendBtn.addEventListener('click', sendMessage);
-            
-            // Enter key press
-            messageInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    sendMessage();
-                }
-            });
-        }
         
         // Send message function
         async function sendMessage() {
             const messageText = messageInput.value.trim();
-            if (!messageText) return;
+            if (!messageText || isWaitingForResponse) return;
             
             // Add user message to UI
             addMessageToUI(messageText, 'user');
@@ -173,21 +284,30 @@
                 }, '*');
             }
             
+            // Show typing indicator
+            isWaitingForResponse = true;
+            typingIndicator.style.display = 'block';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
             try {
                 // Send to n8n webhook
-                const response = await fetch(webhookUrl, {
+                const response = await fetch(n8nWebhookUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         message: messageText,
-                        sessionId: generateSessionId()
+                        sessionId: sessionId
                     })
                 });
                 
+                // Hide typing indicator
+                typingIndicator.style.display = 'none';
+                isWaitingForResponse = false;
+                
                 if (!response.ok) {
-                    throw new Error('Failed to get response from server');
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
                 const data = await response.json();
@@ -211,24 +331,26 @@
             } catch (error) {
                 console.error('Error sending message:', error);
                 addMessageToUI('Sorry, there was an error communicating with the server. Please try again later.', 'bot');
+                
+                // Hide typing indicator
+                typingIndicator.style.display = 'none';
+                isWaitingForResponse = false;
             }
         }
         
         // Add message to UI
-        function addMessageToUI(text, role) {
+        function addMessageToUI(text, sender) {
             const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${role === 'user' ? 'user-message' : 'bot-message'}`;
-            
-            // Create text node for message content
-            messageDiv.appendChild(document.createTextNode(text));
+            messageDiv.className = `message ${sender === 'user' ? 'user-message' : 'bot-message'}`;
+            messageDiv.textContent = text;
             
             // Add timestamp
             const timestamp = document.createElement('div');
             timestamp.className = 'timestamp';
-            timestamp.textContent = new Date().toLocaleTimeString();
+            timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             messageDiv.appendChild(timestamp);
             
-            // Add to chat container
+            // Add to messages container
             chatMessages.appendChild(messageDiv);
             
             // Scroll to bottom
@@ -262,9 +384,10 @@
                             break;
                             
                         case 'clearChat':
-                            chatMessages.innerHTML = '';
-                            // Add welcome message back
-                            addMessageToUI('Hello! How can I help you today?', 'bot');
+                            // Clear all messages except the welcome message
+                            while (chatMessages.children.length > 2) { // Keep welcome message and typing indicator
+                                chatMessages.removeChild(chatMessages.children[1]);
+                            }
                             break;
                     }
                 }
