@@ -236,28 +236,13 @@
             margin-left: 20px;
         }
         
-        /* Debug console for troubleshooting */
-        .debug-console {
-            display: none;
-            padding: 10px;
-            background-color: #f8f8f8;
-            border-top: 1px solid #ddd;
-            font-family: monospace;
-            font-size: 12px;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-        
-        .debug-console.visible {
-            display: block;
-        }
+        /* Debug console removal */
     </style>
 </head>
 <body>
     <div class="chat-container" id="chatContainer">
         <div class="chat-header">
             <h2>Chat with n8n</h2>
-            <button id="debugToggle" style="font-size: 12px; padding: 2px 5px; background: none; border: 1px solid white; color: white; cursor: pointer; border-radius: 3px;">Debug</button>
         </div>
         <div class="chat-messages" id="chatMessages">
             <div class="message bot-message">
@@ -270,9 +255,6 @@
                 <span></span>
             </div>
         </div>
-        <div class="debug-console" id="debugConsole">
-            <div>Debug messages will appear here</div>
-        </div>
         <div class="chat-input">
             <input type="text" class="message-input" id="messageInput" placeholder="Type your message here...">
             <button class="send-btn" id="sendBtn">Send</button>
@@ -283,9 +265,6 @@
         // Configuration - REPLACE THIS WITH YOUR ACTUAL WEBHOOK URL
         const n8nWebhookUrl = 'https://cwx.app.n8n.cloud/webhook/b481e0bc-12fe-4b71-8af0-e6ff9aa7628b/chat';
         
-        // Debugging mode (set to true during development)
-        const debugMode = true;
-        
         // Check if we're in an iframe
         const isEmbedded = window.self !== window.top;
         
@@ -295,45 +274,6 @@
         const messageInput = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendBtn');
         const typingIndicator = document.getElementById('typingIndicator');
-        const debugConsole = document.getElementById('debugConsole');
-        const debugToggle = document.getElementById('debugToggle');
-        
-        // Debug console functionality
-        debugToggle.addEventListener('click', function() {
-            debugConsole.classList.toggle('visible');
-            chatMessages.style.height = debugConsole.classList.contains('visible') ? 'calc(100% - 150px)' : '100%';
-        });
-
-        function logDebug(message, data) {
-            if (!debugMode) return;
-            
-            const logEntry = document.createElement('div');
-            logEntry.style.borderBottom = '1px solid #eee';
-            logEntry.style.padding = '5px 0';
-            
-            if (typeof message === 'string') {
-                logEntry.textContent = message;
-            } else {
-                logEntry.textContent = JSON.stringify(message);
-            }
-            
-            if (data) {
-                const dataText = document.createElement('pre');
-                try {
-                    dataText.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-                } catch (e) {
-                    dataText.textContent = 'Error serializing data: ' + e.message;
-                }
-                dataText.style.margin = '5px 0';
-                dataText.style.padding = '5px';
-                dataText.style.backgroundColor = '#f0f0f0';
-                dataText.style.overflow = 'auto';
-                logEntry.appendChild(dataText);
-            }
-            
-            debugConsole.appendChild(logEntry);
-            debugConsole.scrollTop = debugConsole.scrollHeight;
-        }
         
         // Apply embedded styles if in iframe
         if (isEmbedded) {
@@ -369,13 +309,6 @@
                     type: 'n8nChatWidgetReady'
                 }, '*');
             }
-            
-            // Log initial debug info
-            logDebug('Chat widget initialized', { 
-                sessionId: sessionId, 
-                isEmbedded: isEmbedded, 
-                webhookUrl: n8nWebhookUrl 
-            });
         });
         
         // Send message function
@@ -408,11 +341,6 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
             
             try {
-                logDebug('Sending message to n8n webhook', { 
-                    message: messageText, 
-                    sessionId: sessionId 
-                });
-                
                 // Send to n8n webhook
                 const response = await fetch(n8nWebhookUrl, {
                     method: 'POST',
@@ -498,11 +426,6 @@
                     throw new Error('No message content in response');
                 }
             } catch (error) {
-                logDebug('Error in send message process', { 
-                    error: error.message, 
-                    stack: error.stack 
-                });
-                
                 addMessageToUI('Sorry, there was an error communicating with the server. Please try again later.', 'bot');
                 
                 // Hide typing indicator
@@ -580,9 +503,6 @@
             
             // Scroll to bottom
             chatMessages.scrollTop = chatMessages.scrollHeight;
-            
-            // Log message being added
-            logDebug(`Added ${sender} message to UI`, { text: text });
         }
         
         // Generate a unique session ID
