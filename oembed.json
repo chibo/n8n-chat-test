@@ -1,0 +1,11 @@
+{
+  "version": "1.0",
+  "type": "rich",
+  "provider_name": "n8n Chat Widget",
+  "provider_url": "https://chibo.github.io/n8n-chat-test/",
+  "title": "Chat with n8n",
+  "author_name": "n8n",
+  "html": "<iframe src=\"https://chibo.github.io/n8n-chat-test/chat-widget.html\" width=\"100%\" height=\"500\" frameborder=\"0\" style=\"border-radius: 8px; max-width: 100%;\"></iframe>",
+  "width": 400,
+  "height": 500
+}
