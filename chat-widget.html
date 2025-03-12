@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>N8n Chat Widget</title>
+    <!-- Iframely-friendly meta tags -->
+    <meta property="og:title" content="Chat with n8n">
+    <meta property="og:description" content="Interactive chat widget powered by n8n">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://n8n.io/favicon.ico">
+    <meta name="twitter:card" content="summary">
+    <link rel="canonical" href="https://yourdomain.com/chat-widget.html">
+    <style>
+        :root {
+            --primary-color: #ff6d5a;
+            --secondary-color: #f0f2f5;
+            --text-color: #333;
+            --light-text: #666;
+            --border-radius: 8px;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        
+        .chat-container {
+            max-width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chat-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-header h2 {
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            background-color: #fff;
+        }
+        
+        .message {
+            margin-bottom: 12px;
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: var(--border-radius);
+            position: relative;
+            clear: both;
+            animation: fadeIn 0.2s ease-out;
+            /* Make sure all content stays within the bubble */
+            overflow: visible;
+            display: block;
+            width: auto;
+            float: left;
+        }
+        
+        .user-message {
+            background-color: var(--primary-color);
+            color: white;
+            float: right;
+            border-top-right-radius: 2px;
+        }
+        
+        .bot-message {
+            background-color: var(--secondary-color);
+            float: left;
+            border-top-left-radius: 2px;
+        }
+        
+        /* Fix list styling inside messages */
+        .message ul, .message ol {
+            margin-left: 0;
+            padding-left: 20px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .message li {
+            margin-bottom: 5px;
+            position: relative;
+        }
+        
+        /* Ensure user messages still align right */
+        .user-message {
+            float: right;
+        }
+        
+        .timestamp {
+            font-size: 11px;
+            color: var(--light-text);
+            margin-top: 4px;
+            text-align: right;
+        }
+        
+        .user-message .timestamp {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .chat-input {
+            display: flex;
+            padding: 12px;
+            border-top: 1px solid #ddd;
+            background-color: #fff;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            outline: none;
+            font-family: inherit;
+        }
+        
+        .send-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            padding: 0 16px;
+            margin-left: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .send-btn:hover {
+            opacity: 0.9;
+        }
+        
+        .send-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        /* For embedded mode */
+        .embedded-mode {
+            border: none;
+            border-radius: 0;
+            height: 100%;
+            width: 100%;
+            box-shadow: none;
+        }
+        
+        .embedded-mode .chat-header {
+            display: none;
+        }
+        
+        /* Auto resize for responsive layouts */
+        @media (max-width: 480px) {
+            .chat-container {
+                border-radius: 0;
+                border-left: none;
+                border-right: none;
+            }
+            
+            .message {
+                max-width: 90%;
+            }
+        }
+        
+        /* Animation for new messages */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Loading indicator */
+        .typing-indicator {
+            background-color: var(--secondary-color);
+            padding: 10px;
+            border-radius: var(--border-radius);
+            margin-bottom: 12px;
+            float: left;
+            clear: both;
+            display: none;
+        }
+        
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            float: left;
+            margin: 0 1px;
+            background-color: #9E9EA1;
+            display: block;
+            border-radius: 50%;
+            opacity: 0.4;
+        }
+        
+        .typing-indicator span:nth-of-type(1) {
+            animation: 1s blink infinite 0.3333s;
+        }
+        
+        .typing-indicator span:nth-of-type(2) {
+            animation: 1s blink infinite 0.6666s;
+        }
+        
+        .typing-indicator span:nth-of-type(3) {
+            animation: 1s blink infinite 0.9999s;
+        }
+        
+        @keyframes blink {
+            50% {
+                opacity: 1;
+            }
+        }
+        
+        /* Additional formatting for messages with lists */
+        .contains-list {
+            min-width: 60%;
+            width: auto;
+            max-width: 95%;
+        }
+        
+        /* Format automatic lists (non-HTML) */
+        .message p {
+            margin-bottom: 5px;
+        }
+        
+        /* Handle numbered lists that aren't in HTML format */
+        .message p:has(~p):contains(/^\d+\.\s/) {
+            display: list-item;
+            margin-left: 20px;
+        }
+        
+        /* Handle bullet lists that aren't in HTML format */
+        .message p:contains(/^[•-]\s/) {
+            display: list-item;
+            list-style-type: disc;
+            margin-left: 20px;
+        }
+        
+        /* Debug console removal */
+    </style>
+</head>
+<body>
+    <div class="chat-container" id="chatContainer">
+        <div class="chat-header">
+            <h2>Chat with n8n</h2>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot-message">
+                Hello! How can I help you today?
+                <div class="timestamp">Just now</div>
+            </div>
+            <div class="typing-indicator" id="typingIndicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        <div class="chat-input">
+            <input type="text" class="message-input" id="messageInput" placeholder="Type your message here...">
+            <button class="send-btn" id="sendBtn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - REPLACE THIS WITH YOUR ACTUAL WEBHOOK URL
+        const n8nWebhookUrl = 'https://cwx.app.n8n.cloud/webhook/b481e0bc-12fe-4b71-8af0-e6ff9aa7628b/chat';
+        
+        // Check if we're in an iframe
+        const isEmbedded = window.self !== window.top;
+        
+        // Elements
+        const chatContainer = document.getElementById('chatContainer');
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const typingIndicator = document.getElementById('typingIndicator');
+        
+        // Apply embedded styles if in iframe
+        if (isEmbedded) {
+            chatContainer.classList.add('embedded-mode');
+            // Post height updates to parent for responsive resizing
+            window.addEventListener('resize', sendHeightToParent);
+        }
+        
+        // Function to send height to parent for responsive iframe sizing
+        function sendHeightToParent() {
+            if (isEmbedded) {
+                const height = document.documentElement.scrollHeight;
+                window.parent.postMessage({
+                    type: 'n8nChatWidgetHeight',
+                    height: height
+                }, '*');
+            }
+        }
+        
+        // Session management
+        const sessionId = generateSessionId();
+        let isWaitingForResponse = false;
+        
+        // Set up event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Send button click handler
+            sendBtn.addEventListener('click', sendMessage);
+            
+            // Enter key press handler
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // Focus on input field
+            messageInput.focus();
+            
+            // Set up message listener for parent window communication
+            setupMessageListener();
+            
+            // If embedded, notify the parent that we're ready
+            if (isEmbedded) {
+                window.parent.postMessage({
+                    type: 'n8nChatWidgetReady',
+                    height: document.documentElement.scrollHeight
+                }, '*');
+            }
+            
+            // Initial height update
+            sendHeightToParent();
+        });
+        
+        // Send message function
+        async function sendMessage() {
+            const messageText = messageInput.value.trim();
+            if (!messageText || isWaitingForResponse) return;
+            
+            // Add user message to UI
+            addMessageToUI(messageText, 'user');
+            
+            // Clear input
+            messageInput.value = '';
+            
+            // Send to parent if embedded
+            if (isEmbedded) {
+                window.parent.postMessage({
+                    type: 'n8nChatMessage',
+                    data: {
+                        message: messageText,
+                        role: 'user',
+                        timestamp: new Date().toISOString()
+                    }
+                }, '*');
+            }
+            
+            // Show typing indicator
+            isWaitingForResponse = true;
+            sendBtn.disabled = true;
+            typingIndicator.style.display = 'block';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            try {
+                // Send to n8n webhook
+                const response = await fetch(n8nWebhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: messageText,
+                        sessionId: sessionId
+                    })
+                });
+                
+                // Hide typing indicator
+                typingIndicator.style.display = 'none';
+                isWaitingForResponse = false;
+                sendBtn.disabled = false;
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // Get the response body
+                let data;
+                const contentType = response.headers.get('content-type');
+                
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                    logDebug('Received JSON response from n8n', data);
+                } else {
+                    const textResponse = await response.text();
+                    logDebug('Received non-JSON response from n8n', { 
+                        contentType: contentType, 
+                        text: textResponse 
+                    });
+                    
+                    // Try to parse as JSON anyway
+                    try {
+                        data = JSON.parse(textResponse);
+                    } catch (e) {
+                        // Not JSON, create an object with message property
+                        data = { message: textResponse };
+                    }
+                }
+                
+                // Handle different response formats
+                let botMessage = "";
+                
+                if (data && typeof data === 'object') {
+                    if (data.message) {
+                        botMessage = data.message;
+                    } else if (data.response) {
+                        botMessage = data.response;
+                    } else if (data.text) {
+                        botMessage = data.text;
+                    } else if (data.content) {
+                        botMessage = data.content;
+                    } else if (data.result) {
+                        botMessage = data.result;
+                    } else {
+                        // No recognized property, try to use the whole response as a message
+                        botMessage = JSON.stringify(data);
+                    }
+                } else if (typeof data === 'string') {
+                    botMessage = data;
+                }
+                
+                // If we got a message, display it
+                if (botMessage) {
+                    addMessageToUI(botMessage, 'bot');
+                    
+                    // Send to parent if embedded
+                    if (isEmbedded) {
+                        window.parent.postMessage({
+                            type: 'n8nChatMessage',
+                            data: {
+                                message: botMessage,
+                                role: 'assistant',
+                                timestamp: new Date().toISOString()
+                            }
+                        }, '*');
+                    }
+                } else {
+                    throw new Error('No message content in response');
+                }
+            } catch (error) {
+                addMessageToUI('Sorry, there was an error communicating with the server. Please try again later.', 'bot');
+                
+                // Hide typing indicator
+                typingIndicator.style.display = 'none';
+                isWaitingForResponse = false;
+                sendBtn.disabled = false;
+            }
+        }
+        
+        // Format message content to properly handle lists
+        function formatMessageContent(text) {
+            // Add a wrapper div around the whole content for better list handling
+            if (!text.startsWith('<div')) {
+                text = `<div style="width:100%; box-sizing:border-box;">${text}</div>`;
+            }
+            
+            // Check if the text contains numbered lists that aren't in HTML format
+            // For example: "1. Item one\n2. Item two"
+            if (/^\d+\.\s.+/m.test(text) && !/<ol|<li/i.test(text)) {
+                // Convert to HTML ordered list
+                text = text.replace(/^\d+\.\s(.+)$/gm, '<li>$1</li>')
+                           .replace(/((<li>.+<\/li>\n?)+)/g, '<ol style="padding-left:20px; margin:0;">$1</ol>');
+            }
+            
+            // Check if the text contains bullet lists that aren't in HTML format
+            // For example: "• Item one\n• Item two" or "- Item one\n- Item two"
+            if (/^[•\-]\s.+/m.test(text) && !/<ul|<li/i.test(text)) {
+                // Convert to HTML unordered list
+                text = text.replace(/^[•\-]\s(.+)$/gm, '<li>$1</li>')
+                           .replace(/((<li>.+<\/li>\n?)+)/g, '<ul style="padding-left:20px; margin:0;">$1</ul>');
+            }
+            
+            // Ensure any existing HTML lists have proper styling
+            text = text.replace(/<ul>/g, '<ul style="padding-left:20px; margin:0;">')
+                       .replace(/<ol>/g, '<ol style="padding-left:20px; margin:0;">');
+            
+            return text;
+        }
+        
+        // Add message to UI
+        function addMessageToUI(text, sender) {
+            // Format the message content
+            text = formatMessageContent(text);
+            
+            // Create a container for proper alignment
+            const messageContainer = document.createElement('div');
+            messageContainer.style.clear = 'both';
+            messageContainer.style.overflow = 'hidden';
+            messageContainer.style.width = '100%';
+            messageContainer.style.display = 'flex';
+            messageContainer.style.flexDirection = sender === 'user' ? 'row-reverse' : 'row';
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender === 'user' ? 'user-message' : 'bot-message'}`;
+            
+            // Always use innerHTML to ensure proper rendering of lists and formatting
+            messageDiv.innerHTML = text;
+            
+            // Apply list item formatting if the message contains list items
+            if (text.includes('<li>') || text.includes('<ol>') || text.includes('<ul>') || 
+                text.includes('1.') || text.includes('•') || text.includes('- ')) {
+                messageDiv.classList.add('contains-list');
+            }
+            
+            // Add timestamp
+            const timestamp = document.createElement('div');
+            timestamp.className = 'timestamp';
+            timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            messageDiv.appendChild(timestamp);
+            
+            // Add the message to the container
+            messageContainer.appendChild(messageDiv);
+            
+            // Add to messages container
+            chatMessages.appendChild(messageContainer);
+            
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Update height for iframe embedding
+            if (isEmbedded) {
+                sendHeightToParent();
+            }
+        }
+        
+        // Generate a unique session ID
+        function generateSessionId() {
+            return 'session_' + Math.random().toString(36).substring(2, 15);
+        }
+        
+        // Set up listener for messages from parent window
+        function setupMessageListener() {
+            window.addEventListener('message', function(event) {
+                // Security check - replace with your allowed origins
+                if (!isAllowedOrigin(event.origin)) {
+                    logDebug('Message received from unauthorized origin', { 
+                        origin: event.origin 
+                    });
+                    return;
+                }
+                
+                const data = event.data;
+                logDebug('Received message from parent', data);
+                
+                // Handle commands from parent
+                if (data && data.type === 'command') {
+                    switch(data.action) {
+                        case 'sendMessage':
+                            if (data.message) {
+                                messageInput.value = data.message;
+                                sendMessage();
+                            }
+                            break;
+                            
+                        case 'clearChat':
+                            // Clear all messages except the welcome message
+                            while (chatMessages.children.length > 2) { // Keep welcome message and typing indicator
+                                chatMessages.removeChild(chatMessages.children[1]);
+                            }
+                            break;
+                    }
+                }
+            });
+        }
+        
+        // Function to check if origin is allowed
+        function isAllowedOrigin(origin) {
+            // For development/testing, you might want to allow all origins
+            return true;
+            
+            // In production, use something like this:
+            // const allowedOrigins = [
+            //     'https://yourdomain.com',
+            //     'https://yourotherdomain.com'
+            // ];
+            // return allowedOrigins.includes(origin);
+        }
+    </script>
+</body>
+</html>
