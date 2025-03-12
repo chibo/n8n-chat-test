@@ -69,6 +69,10 @@
             position: relative;
             clear: both;
             animation: fadeIn 0.2s ease-out;
+            /* Make sure all content stays within the bubble */
+            overflow: auto;
+            display: inline-block;
+            width: auto;
         }
         
         .user-message {
@@ -82,6 +86,17 @@
             background-color: var(--secondary-color);
             float: left;
             border-top-left-radius: 2px;
+        }
+        
+        /* Fix list styling inside messages */
+        .message ol, .message ul {
+            margin-left: 20px;
+            padding-left: 10px;
+            width: calc(100% - 30px);
+        }
+        
+        .message li {
+            margin-bottom: 5px;
         }
         
         .timestamp {
@@ -186,6 +201,29 @@
             50% {
                 opacity: 1;
             }
+        }
+        
+        /* Additional formatting for messages with lists */
+        .contains-list {
+            min-width: 60%;
+        }
+        
+        /* Format automatic lists (non-HTML) */
+        .message p {
+            margin-bottom: 5px;
+        }
+        
+        /* Handle numbered lists that aren't in HTML format */
+        .message p:has(~p):contains(/^\d+\.\s/) {
+            display: list-item;
+            margin-left: 20px;
+        }
+        
+        /* Handle bullet lists that aren't in HTML format */
+        .message p:contains(/^[•-]\s/) {
+            display: list-item;
+            list-style-type: disc;
+            margin-left: 20px;
         }
         
         /* Debug console for troubleshooting */
@@ -464,17 +502,41 @@
             }
         }
         
+        // Format message content to properly handle lists
+        function formatMessageContent(text) {
+            // Check if the text contains numbered lists that aren't in HTML format
+            // For example: "1. Item one\n2. Item two"
+            if (/^\d+\.\s.+/m.test(text) && !/<ol|<li/i.test(text)) {
+                // Convert to HTML ordered list
+                text = text.replace(/^\d+\.\s(.+)$/gm, '<li>$1</li>')
+                           .replace(/((<li>.+<\/li>\n?)+)/g, '<ol>$1</ol>');
+            }
+            
+            // Check if the text contains bullet lists that aren't in HTML format
+            // For example: "• Item one\n• Item two" or "- Item one\n- Item two"
+            if (/^[•\-]\s.+/m.test(text) && !/<ul|<li/i.test(text)) {
+                // Convert to HTML unordered list
+                text = text.replace(/^[•\-]\s(.+)$/gm, '<li>$1</li>')
+                           .replace(/((<li>.+<\/li>\n?)+)/g, '<ul>$1</ul>');
+            }
+            
+            return text;
+        }
+        
         // Add message to UI
         function addMessageToUI(text, sender) {
+            // Format the message content
+            text = formatMessageContent(text);
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender === 'user' ? 'user-message' : 'bot-message'}`;
             
-            // Use innerHTML if the text looks like HTML, otherwise use textContent
-            const containsHTML = /<[a-z][\s\S]*>/i.test(text);
-            if (containsHTML) {
-                messageDiv.innerHTML = text;
-            } else {
-                messageDiv.textContent = text;
+            // Always use innerHTML to ensure proper rendering of lists and formatting
+            messageDiv.innerHTML = text;
+            
+            // Apply list item formatting if the message contains list items
+            if (text.includes('<li>') || text.includes('<ol>') || text.includes('<ul>') || 
+                text.includes('1.') || text.includes('•') || text.includes('- ')) {
+                messageDiv.classList.add('contains-list');
             }
             
             // Add timestamp
