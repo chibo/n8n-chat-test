@@ -70,9 +70,10 @@
             clear: both;
             animation: fadeIn 0.2s ease-out;
             /* Make sure all content stays within the bubble */
-            overflow: auto;
-            display: inline-block;
+            overflow: visible;
+            display: block;
             width: auto;
+            float: left;
         }
         
         .user-message {
@@ -89,14 +90,21 @@
         }
         
         /* Fix list styling inside messages */
-        .message ol, .message ul {
-            margin-left: 20px;
-            padding-left: 10px;
-            width: calc(100% - 30px);
+        .message ul, .message ol {
+            margin-left: 0;
+            padding-left: 20px;
+            width: 100%;
+            box-sizing: border-box;
         }
         
         .message li {
             margin-bottom: 5px;
+            position: relative;
+        }
+        
+        /* Ensure user messages still align right */
+        .user-message {
+            float: right;
         }
         
         .timestamp {
@@ -206,6 +214,8 @@
         /* Additional formatting for messages with lists */
         .contains-list {
             min-width: 60%;
+            width: auto;
+            max-width: 95%;
         }
         
         /* Format automatic lists (non-HTML) */
@@ -504,12 +514,17 @@
         
         // Format message content to properly handle lists
         function formatMessageContent(text) {
+            // Add a wrapper div around the whole content for better list handling
+            if (!text.startsWith('<div')) {
+                text = `<div style="width:100%; box-sizing:border-box;">${text}</div>`;
+            }
+            
             // Check if the text contains numbered lists that aren't in HTML format
             // For example: "1. Item one\n2. Item two"
             if (/^\d+\.\s.+/m.test(text) && !/<ol|<li/i.test(text)) {
                 // Convert to HTML ordered list
                 text = text.replace(/^\d+\.\s(.+)$/gm, '<li>$1</li>')
-                           .replace(/((<li>.+<\/li>\n?)+)/g, '<ol>$1</ol>');
+                           .replace(/((<li>.+<\/li>\n?)+)/g, '<ol style="padding-left:20px; margin:0;">$1</ol>');
             }
             
             // Check if the text contains bullet lists that aren't in HTML format
@@ -517,8 +532,12 @@
             if (/^[•\-]\s.+/m.test(text) && !/<ul|<li/i.test(text)) {
                 // Convert to HTML unordered list
                 text = text.replace(/^[•\-]\s(.+)$/gm, '<li>$1</li>')
-                           .replace(/((<li>.+<\/li>\n?)+)/g, '<ul>$1</ul>');
+                           .replace(/((<li>.+<\/li>\n?)+)/g, '<ul style="padding-left:20px; margin:0;">$1</ul>');
             }
+            
+            // Ensure any existing HTML lists have proper styling
+            text = text.replace(/<ul>/g, '<ul style="padding-left:20px; margin:0;">')
+                       .replace(/<ol>/g, '<ol style="padding-left:20px; margin:0;">');
             
             return text;
         }
@@ -527,6 +546,14 @@
         function addMessageToUI(text, sender) {
             // Format the message content
             text = formatMessageContent(text);
+            
+            // Create a container for proper alignment
+            const messageContainer = document.createElement('div');
+            messageContainer.style.clear = 'both';
+            messageContainer.style.overflow = 'hidden';
+            messageContainer.style.width = '100%';
+            messageContainer.style.display = 'flex';
+            messageContainer.style.flexDirection = sender === 'user' ? 'row-reverse' : 'row';
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender === 'user' ? 'user-message' : 'bot-message'}`;
             
@@ -545,8 +572,11 @@
             timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             messageDiv.appendChild(timestamp);
             
+            // Add the message to the container
+            messageContainer.appendChild(messageDiv);
+            
             // Add to messages container
-            chatMessages.appendChild(messageDiv);
+            chatMessages.appendChild(messageContainer);
             
             // Scroll to bottom
             chatMessages.scrollTop = chatMessages.scrollHeight;
